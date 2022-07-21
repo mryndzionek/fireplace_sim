@@ -1,0 +1,57 @@
+name: build
+
+on:
+  push:
+    branches:    
+      - build
+jobs:
+  build:
+
+    env:
+      BUILD_TYPE: Release
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Prepare
+      run: |
+        sudo apt-get update
+        sudo apt-get install libpulse-dev locate
+
+    - name: Checkout
+      uses: actions/checkout@01aecccf739ca6ff86c0539fbc67a7a5007bbc81
+
+    - name: Configure
+      run: |
+        mkdir dependencies
+        mkdir local
+        cd dependencies
+
+        git clone https://github.com/thestk/rtaudio.git -b 5.2.0
+        cd rtaudio
+        ./autogen.sh
+        ./configure --prefix=$PWD/../../local
+        make
+        make check
+        make install
+        cd ..
+
+        export LD_LIBRARY_PATH=$PWD/local/lib/:$LD_LIBRARY_PATH
+
+        sudo ldconfig
+        sudo updatedb
+      
+    - name: Build
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
+        make
+
+    - uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571
+      with:
+        name: binaries
+        path: |
+          build/fireplace
+
