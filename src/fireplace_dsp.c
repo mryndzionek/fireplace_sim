@@ -50,8 +50,8 @@ static void fillmydspSIG0(mydspSIG0 *dsp, int count, float *table)
 		for (i1 = 0; i1 < count; i1 = i1 + 1)
 		{
 			dsp->iVec4[0] = 1;
-			dsp->iRec21[0] = (dsp->iVec4[1] + dsp->iRec21[1]) % 65536;
-			table[i1] = sinf(9.58738019e-05f * (float)(dsp->iRec21[0]));
+			dsp->iRec21[0] = (dsp->iVec4[1] + dsp->iRec21[1]) % 4096;
+			table[i1] = sinf(0.00153398083f * (float)(dsp->iRec21[0]));
 			dsp->iVec4[1] = dsp->iVec4[0];
 			dsp->iRec21[1] = dsp->iRec21[0];
 		}
@@ -62,7 +62,7 @@ static float mydsp_faustpower2_f(float value)
 {
 	return value * value;
 }
-static float ftbl0mydspSIG0[65536];
+static float ftbl0mydspSIG0[4096];
 
 #ifndef FAUSTCLASS
 #define FAUSTCLASS mydsp
@@ -177,7 +177,10 @@ struct mydsp
 mydsp_t *newmydsp(int sample_rate)
 {
 	mydsp_t *dsp = (mydsp_t *)calloc(1, sizeof(mydsp_t));
-	initmydsp(dsp, sample_rate);
+	if (dsp)
+	{
+		initmydsp(dsp, sample_rate);
+	}
 	return dsp;
 }
 
@@ -204,7 +207,7 @@ static void classInitmydsp(int sample_rate)
 {
 	mydspSIG0 *sig0 = newmydspSIG0();
 	instanceInitmydspSIG0(sig0, sample_rate);
-	fillmydspSIG0(sig0, 65536, ftbl0mydspSIG0);
+	fillmydspSIG0(sig0, 4096, ftbl0mydspSIG0);
 	deletemydspSIG0(sig0);
 }
 
@@ -763,7 +766,7 @@ void compute(mydsp_t *dsp, int count, FAUSTFLOAT **RESTRICT inputs, FAUSTFLOAT *
 			dsp->fRec19[0] = dsp->fRec20[0] - dsp->fConst45 * (dsp->fConst46 * dsp->fRec19[2] + dsp->fConst49 * dsp->fRec19[1]);
 			float fTemp15 = dsp->fRec19[2] + dsp->fRec19[0] + 2.0f * dsp->fRec19[1];
 			dsp->fRec22[0] = dsp->fConst50 + dsp->fRec22[1] - floorf(dsp->fConst50 + dsp->fRec22[1]);
-			float fTemp16 = dsp->fRec15[0] * fTemp15 * ftbl0mydspSIG0[(int)(65536.0f * dsp->fRec22[0])];
+			float fTemp16 = dsp->fRec15[0] * fTemp15 * ftbl0mydspSIG0[(int)(4096.0f * dsp->fRec22[0])];
 			dsp->fVec5[0] = fTemp16;
 			dsp->fRec14[0] = dsp->fConst38 * (dsp->fConst39 * fTemp16 + dsp->fConst51 * dsp->fVec5[1]) - dsp->fConst52 * dsp->fRec14[1];
 			dsp->fRec13[0] = dsp->fRec14[0] - dsp->fConst32 * (dsp->fConst53 * dsp->fRec13[2] + dsp->fConst54 * dsp->fRec13[1]);
@@ -787,7 +790,7 @@ void compute(mydsp_t *dsp, int count, FAUSTFLOAT **RESTRICT inputs, FAUSTFLOAT *
 			float fElse7 = (float)(iTemp21);
 			dsp->fRec25[0] = (1.0f - fTemp26) * ((iTemp22) ? fElse7 : 0.0f) + fTemp26 * dsp->fRec25[1];
 			dsp->fRec29[0] = dsp->fConst57 + dsp->fRec29[1] - floorf(dsp->fConst57 + dsp->fRec29[1]);
-			float fTemp27 = dsp->fRec25[0] * fTemp15 * ftbl0mydspSIG0[(int)(65536.0f * dsp->fRec29[0])];
+			float fTemp27 = dsp->fRec25[0] * fTemp15 * ftbl0mydspSIG0[(int)(4096.0f * dsp->fRec29[0])];
 			dsp->fVec8[0] = fTemp27;
 			dsp->fRec24[0] = dsp->fConst38 * (dsp->fConst39 * fTemp27 + dsp->fConst51 * dsp->fVec8[1]) - dsp->fConst52 * dsp->fRec24[1];
 			dsp->fRec23[0] = dsp->fRec24[0] - dsp->fConst32 * (dsp->fConst53 * dsp->fRec23[2] + dsp->fConst54 * dsp->fRec23[1]);
@@ -811,7 +814,7 @@ void compute(mydsp_t *dsp, int count, FAUSTFLOAT **RESTRICT inputs, FAUSTFLOAT *
 			float fElse11 = (float)(iTemp32);
 			dsp->fRec32[0] = (1.0f - fTemp37) * ((iTemp33) ? fElse11 : 0.0f) + fTemp37 * dsp->fRec32[1];
 			dsp->fRec36[0] = dsp->fConst59 + dsp->fRec36[1] - floorf(dsp->fConst59 + dsp->fRec36[1]);
-			float fTemp38 = dsp->fRec32[0] * fTemp15 * ftbl0mydspSIG0[(int)(65536.0f * dsp->fRec36[0])];
+			float fTemp38 = dsp->fRec32[0] * fTemp15 * ftbl0mydspSIG0[(int)(4096.0f * dsp->fRec36[0])];
 			dsp->fVec11[0] = fTemp38;
 			dsp->fRec31[0] = dsp->fConst38 * (dsp->fConst39 * fTemp38 + dsp->fConst51 * dsp->fVec11[1]) - dsp->fConst52 * dsp->fRec31[1];
 			dsp->fRec30[0] = dsp->fRec31[0] - dsp->fConst32 * (dsp->fConst53 * dsp->fRec30[2] + dsp->fConst54 * dsp->fRec30[1]);
