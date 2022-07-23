@@ -11,17 +11,20 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "driver/gpio.h"
-#include "driver/i2s.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
+
+#include "pwm_audio.h"
 
 #include "faust_dsp.h"
 
 static const char *TAG = "fireplace";
 
 #define BLINK_GPIO (2)
-#define SAMPLERATE (44100)
+#define SAMPLERATE (48000)
+
 #define OUT_SIZE (SAMPLERATE / 4)
 #define TIME_BUDGET_MS (1000UL / 4)
 
@@ -29,75 +32,71 @@ static QueueHandle_t dacInput;
 
 static void configure_led(void)
 {
-    ESP_LOGI(TAG, "Example configured to blink GPIO LED!");
     gpio_reset_pin(BLINK_GPIO);
-    /* Set the GPIO as a push/pull output */
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
 }
 
-static void i2s_init(void)
+static void i2s_dac_data_scale(int16_t *d_buff, const float *const s_buff, uint32_t len)
 {
-    int i2s_num = 0;
-    i2s_config_t i2s_config = {
-        .mode = I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_DAC_BUILT_IN,
-        .sample_rate = SAMPLERATE,
-        .bits_per_sample = 16,
-        .communication_format = I2S_COMM_FORMAT_STAND_MSB,
-        .channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT,
-        .intr_alloc_flags = 0,
-        .dma_buf_count = 2,
-        .dma_buf_len = 1024,
-        .use_apll = 1,
-    };
-    // install and start i2s driver
-    i2s_driver_install(i2s_num, &i2s_config, 0, NULL);
-    // init DAC pad
-    i2s_set_dac_mode(I2S_DAC_CHANNEL_BOTH_EN);
-}
-
-static int i2s_dac_data_scale(uint8_t *d_buff, float *s_buff, uint32_t len)
-{
-    uint32_t j = 0;
-
     for (int i = 0; i < len; i++)
     {
-        d_buff[j++] = 0;
-        d_buff[j++] = (uint8_t)((s_buff[i] * 128) + 128);
+        d_buff[i] = (int16_t)(s_buff[i] * __INT16_MAX__);
     }
-    return (len * 2);
 }
 
 void dac_tx_task(void *arg)
 {
-    static uint8_t i2s_write_buff[2 * OUT_SIZE];
-
-    float *in_buff;
+    int16_t *data;
     size_t bytes_written;
     esp_err_t err;
-    int i2s_wr_len;
+    BaseType_t ret;
 
     for (;;)
     {
-        if (xQueueReceive(dacInput, &in_buff, portMAX_DELAY))
+        if (xQueuePeek(dacInput, &data, portMAX_DELAY))
         {
-            i2s_wr_len = i2s_dac_data_scale(i2s_write_buff, in_buff, OUT_SIZE);
-            err = i2s_write(0, i2s_write_buff, i2s_wr_len, &bytes_written, portMAX_DELAY);
+            err = pwm_audio_write((uint8_t *)data, 2 * OUT_SIZE, &bytes_written, portMAX_DELAY);
             assert(err == ESP_OK);
+            assert(bytes_written == 2 * OUT_SIZE);
+            ret = xQueueReceive(dacInput, &data, 0);
+            assert(ret == pdTRUE);
         }
     }
 }
 
 void app_main(void)
 {
-    static FAUSTFLOAT outputBuffer[2][OUT_SIZE];
+    int i = 0;
+    static FAUSTFLOAT outputBuffer[OUT_SIZE];
+    const FAUSTFLOAT *buffer = outputBuffer;
+
+    static int16_t i2s_write_buff[2][OUT_SIZE];
 
     uint32_t pre;
-    int i = 0;
+    esp_err_t err;
 
     configure_led();
-    i2s_init();
 
-    dacInput = xQueueCreate(1, sizeof(float *));
+    pwm_audio_config_t pac;
+    pac.duty_resolution = LEDC_TIMER_10_BIT;
+    pac.gpio_num_left = 25;
+    pac.ledc_channel_left = LEDC_CHANNEL_0;
+    pac.gpio_num_right = -1;
+    pac.ledc_channel_right = LEDC_CHANNEL_1;
+    pac.ledc_timer_sel = LEDC_TIMER_0;
+    pac.tg_num = TIMER_GROUP_0;
+    pac.timer_num = TIMER_0;
+    pac.ringbuf_len = 1024 * 8;
+    pwm_audio_init(&pac);
+
+    err = pwm_audio_set_param(SAMPLERATE, 16, 1);
+    assert(err == ESP_OK);
+    err = pwm_audio_set_volume(4);
+    assert(err == ESP_OK);
+    err = pwm_audio_start();
+    assert(err == ESP_OK);
+
+    dacInput = xQueueCreate(1, sizeof(int16_t *));
     assert(dacInput);
 
     BaseType_t res = xTaskCreate(dac_tx_task, "dac_tx_task", 1024 * 2, NULL, tskIDLE_PRIORITY + 1, NULL);
@@ -106,18 +105,19 @@ void app_main(void)
     mydsp_t *dsp = newmydsp(SAMPLERATE);
     assert(dsp);
 
-    FAUSTFLOAT *buffer = (FAUSTFLOAT *)outputBuffer[i];
     compute(dsp, OUT_SIZE, NULL, (FAUSTFLOAT **)&buffer);
+    i2s_dac_data_scale(i2s_write_buff[i], buffer, OUT_SIZE);
 
     while (1)
     {
-        res = xQueueSend(dacInput, &buffer, portMAX_DELAY);
+        int16_t *p = i2s_write_buff[i];
+        res = xQueueSend(dacInput, &p, portMAX_DELAY);
         assert(res == pdTRUE);
-        i ^= 1;
-        buffer = (FAUSTFLOAT *)outputBuffer[i];
         gpio_set_level(BLINK_GPIO, 1);
         pre = portTICK_PERIOD_MS * xTaskGetTickCount();
         compute(dsp, OUT_SIZE, NULL, (FAUSTFLOAT **)&buffer);
+        i ^= 1;
+        i2s_dac_data_scale(i2s_write_buff[i], buffer, OUT_SIZE);
         pre = (portTICK_PERIOD_MS * xTaskGetTickCount()) - pre;
         gpio_set_level(BLINK_GPIO, 0);
         ESP_LOGI(TAG, "Audio generation took %d ms (%lu %%)", pre, (100 * pre) / TIME_BUDGET_MS);
