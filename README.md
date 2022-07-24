@@ -1,6 +1,6 @@
 # fireplace_sim
 
-Fireplace sound simulator in C using [Faust](https://faust.grame.fr/).
+Procedural fireplace sound simulator in C using [Faust](https://faust.grame.fr/).
 Audio output thanks to [RtAudio](https://www.music.mcgill.ca/~gary/rtaudio/).
 
 ## Building
