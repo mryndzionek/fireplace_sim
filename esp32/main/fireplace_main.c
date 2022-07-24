@@ -23,7 +23,7 @@
 static const char *TAG = "fireplace";
 
 #define BLINK_GPIO (2)
-#define SAMPLERATE (48000)
+#define SAMPLERATE (28000)
 
 #define OUT_SIZE (SAMPLERATE / 4)
 #define TIME_BUDGET_MS (1000UL / 4)
@@ -104,6 +104,7 @@ void app_main(void)
 
     mydsp_t *dsp = newmydsp(SAMPLERATE);
     assert(dsp);
+    wet(dsp, true);
 
     compute(dsp, OUT_SIZE, NULL, (FAUSTFLOAT **)&buffer);
     i2s_dac_data_scale(i2s_write_buff[i], buffer, OUT_SIZE);
