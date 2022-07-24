@@ -7,6 +7,7 @@ Compilation options: -lang c -es 1 -mcd 16 -single -ftz 0
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "faust_dsp.h"
 
@@ -76,6 +77,7 @@ static float ftbl0mydspSIG0[4096];
 struct mydsp
 {
 	int fSampleRate;
+	bool wet;
 	float fConst4;
 	float fConst5;
 	int iVec0[2];
@@ -213,6 +215,7 @@ static void classInitmydsp(int sample_rate)
 
 static void instanceResetUserInterfacemydsp(mydsp_t *dsp)
 {
+	dsp->wet = false;
 }
 
 static void instanceClearmydsp(mydsp_t *dsp)
@@ -818,7 +821,11 @@ void compute(mydsp_t *dsp, int count, FAUSTFLOAT **RESTRICT inputs, FAUSTFLOAT *
 			dsp->fVec11[0] = fTemp38;
 			dsp->fRec31[0] = dsp->fConst38 * (dsp->fConst39 * fTemp38 + dsp->fConst51 * dsp->fVec11[1]) - dsp->fConst52 * dsp->fRec31[1];
 			dsp->fRec30[0] = dsp->fRec31[0] - dsp->fConst32 * (dsp->fConst53 * dsp->fRec30[2] + dsp->fConst54 * dsp->fRec30[1]);
-			float fTemp39 = dsp->fConst34 * dsp->fRec13[0] + dsp->fConst55 * dsp->fRec13[1] + dsp->fConst34 * dsp->fRec13[2] + 12.0f * (dsp->fConst34 * dsp->fRec23[0] + dsp->fConst55 * dsp->fRec23[1] + dsp->fConst34 * dsp->fRec23[2]) + 20.0f * (dsp->fConst34 * dsp->fRec30[0] + dsp->fConst55 * dsp->fRec30[1] + dsp->fConst34 * dsp->fRec30[2]);
+			float fTemp39 = dsp->fConst34 * dsp->fRec13[0] + dsp->fConst55 * dsp->fRec13[1] + dsp->fConst34 * dsp->fRec13[2];
+			if (dsp->wet)
+			{
+				fTemp39 += (12.0f * (dsp->fConst34 * dsp->fRec23[0] + dsp->fConst55 * dsp->fRec23[1] + dsp->fConst34 * dsp->fRec23[2]) + 20.0f * (dsp->fConst34 * dsp->fRec30[0] + dsp->fConst55 * dsp->fRec30[1] + dsp->fConst34 * dsp->fRec30[2]));
+			}
 			float fTemp40 = fTemp3 + dsp->fConst32 * fTemp39;
 			dsp->fVec12[0] = fTemp40;
 			dsp->fRec38[0] = 0.0f - dsp->fConst17 * (dsp->fConst18 * dsp->fRec38[1] - (fTemp40 + dsp->fVec12[1]));
@@ -888,4 +895,9 @@ void compute(mydsp_t *dsp, int count, FAUSTFLOAT **RESTRICT inputs, FAUSTFLOAT *
 			dsp->fRec39[1] = dsp->fRec39[0];
 		}
 	}
+}
+
+void wet(mydsp_t *dsp, bool wet)
+{
+	dsp->wet = wet;
 }

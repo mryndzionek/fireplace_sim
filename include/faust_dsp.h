@@ -25,6 +25,7 @@ extern "C"
     int getNumInputs(mydsp_t *dsp);
     int getNumOutputs(mydsp_t *dsp);
     void compute(mydsp_t *dsp, int count, FAUSTFLOAT **RESTRICT inputs, FAUSTFLOAT **RESTRICT outputs);
+    void wet(mydsp_t *dsp, bool wet);
 
 #ifdef __cplusplus
 }
