@@ -15,7 +15,7 @@ cd rtaudio
 make
 make check
 make install
-cd ..
+cd ../..
 mkdir build
 cd build
 cmake ..
